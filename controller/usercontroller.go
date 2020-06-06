@@ -2,11 +2,14 @@ package controller
 
 import (
 	"auth-server-go/model"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
@@ -15,6 +18,7 @@ import (
 //Controller : constructor
 type Controller struct {
 	Collection *mongo.Collection
+	Redis      *redis.Client
 }
 
 func sendFailedResponse(c *gin.Context, statusCode int, msg string) {
@@ -64,15 +68,21 @@ func (con *Controller) RegisterHandler() gin.HandlerFunc {
 			return
 		}
 
+		redisData, err := json.Marshal(userData)
+		err = con.Redis.Set(c, u.Email, redisData, 6*time.Hour).Err()
+		if err != nil {
+			log.Println("redis error: ", err.Error())
+		}
+
 		sendSuccessResponse(c, http.StatusCreated, gin.H{
 			"new_user_id": newUser.InsertedID,
 		})
 	}
 }
 
+//LoginHandler : handle user login logic
 func (con *Controller) LoginHandler() gin.HandlerFunc {
-	return (c *gin.Context) {
-		var u model.User
+	return func(c *gin.Context) {
 
 		email := c.Query("email")
 		password := c.Query("password")
@@ -83,7 +93,7 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 		}
 
 		var loginUser model.User
-		err := userCol.FindOne(ctx, bson.M{"email": email}).Decode(&loginUser)
+		err = con.Collection.FindOne(c, bson.M{"email": email}).Decode(&loginUser)
 		if err != nil {
 			sendFailedResponse(c, http.StatusNotFound, "user not found")
 			return
@@ -96,9 +106,9 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 		}
 
 		sendSuccessResponse(c, http.StatusOK, gin.H{
-			"id": loginUser.ID,
+			"id":       loginUser.ID,
 			"username": loginUser.Username,
-			"email": loginUser.Email	
+			"email":    loginUser.Email,
 		})
 	}
 }
