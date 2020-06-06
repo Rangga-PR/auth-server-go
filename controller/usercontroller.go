@@ -69,3 +69,36 @@ func (con *Controller) RegisterHandler() gin.HandlerFunc {
 		})
 	}
 }
+
+func (con *Controller) LoginHandler() gin.HandlerFunc {
+	return (c *gin.Context) {
+		var u model.User
+
+		email := c.Query("email")
+		password := c.Query("password")
+
+		if email == "" || password == "" {
+			sendFailedResponse(c, http.StatusBadRequest, "please fill email and password")
+			return
+		}
+
+		var loginUser model.User
+		err := userCol.FindOne(ctx, bson.M{"email": email}).Decode(&loginUser)
+		if err != nil {
+			sendFailedResponse(c, http.StatusNotFound, "user not found")
+			return
+		}
+
+		err = bcrypt.CompareHashAndPassword([]byte(loginUser.Password), []byte(password))
+		if err != nil {
+			sendFailedResponse(c, http.StatusNotFound, "incorrect password")
+			return
+		}
+
+		sendSuccessResponse(c, http.StatusOK, gin.H{
+			"id": loginUser.ID,
+			"username": loginUser.Username,
+			"email": loginUser.Email	
+		})
+	}
+}
