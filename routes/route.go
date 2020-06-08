@@ -6,6 +6,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -29,7 +30,12 @@ func init() {
 
 	db = config.ConnectDatabase(os.Getenv("MONGO_URI"))
 
-	redisClient, err = config.RedisClient("0.0.0.0:6379", "test123", 0)
+	redisDB, err := strconv.Atoi(os.Getenv("REDIS_DB"))
+	if err != nil {
+		redisDB = 0
+	}
+
+	redisClient, err = config.RedisClient(os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PASSWORD"), redisDB)
 	if err != nil {
 		log.Fatal("redis error: ", err.Error())
 	}
