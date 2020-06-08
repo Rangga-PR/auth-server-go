@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
@@ -93,7 +95,7 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 		}
 
 		var loginUser model.User
-		err = con.Collection.FindOne(c, bson.M{"email": email}).Decode(&loginUser)
+		err := con.Collection.FindOne(c, bson.M{"email": email}).Decode(&loginUser)
 		if err != nil {
 			sendFailedResponse(c, http.StatusNotFound, "user not found")
 			return
@@ -105,10 +107,24 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 			return
 		}
 
+		claims := jwt.MapClaims{
+			"authorized": true,
+			"username":   loginUser.Username,
+			"email":      loginUser.Email,
+			"id":         loginUser.ID,
+			"expired":    time.Now().Add(6 * time.Hour).Unix(),
+		}
+
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		accessToken, err := token.SignedString([]byte(os.Getenv("SECRET_KEY")))
+		if err != nil {
+			log.Println("jwt-error: ", err.Error())
+			sendFailedResponse(c, http.StatusInternalServerError, "something went wrong, please try again")
+			return
+		}
+
 		sendSuccessResponse(c, http.StatusOK, gin.H{
-			"id":       loginUser.ID,
-			"username": loginUser.Username,
-			"email":    loginUser.Email,
+			"access_token": accessToken,
 		})
 	}
 }
