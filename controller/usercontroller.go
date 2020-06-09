@@ -2,7 +2,6 @@ package controller
 
 import (
 	"auth-server-go/model"
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -70,12 +69,6 @@ func (con *Controller) RegisterHandler() gin.HandlerFunc {
 			return
 		}
 
-		redisData, err := json.Marshal(userData)
-		err = con.Redis.Set(c, u.Email, redisData, 6*time.Hour).Err()
-		if err != nil {
-			log.Println("redis error: ", err.Error())
-		}
-
 		sendSuccessResponse(c, http.StatusCreated, gin.H{
 			"new_user_id": newUser.InsertedID,
 		})
@@ -94,8 +87,16 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 			return
 		}
 
+		accessToken, err := con.Redis.Get(c, email).Result()
+		if err != nil || accessToken != "" {
+			sendSuccessResponse(c, http.StatusOK, gin.H{
+				"access_token": accessToken,
+			})
+			return
+		}
+
 		var loginUser model.User
-		err := con.Collection.FindOne(c, bson.M{"email": email}).Decode(&loginUser)
+		err = con.Collection.FindOne(c, bson.M{"email": email}).Decode(&loginUser)
 		if err != nil {
 			sendFailedResponse(c, http.StatusNotFound, "user not found")
 			return
@@ -116,11 +117,16 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 		}
 
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		accessToken, err := token.SignedString([]byte(os.Getenv("SECRET_KEY")))
+		accessToken, err = token.SignedString([]byte(os.Getenv("SECRET_KEY")))
 		if err != nil {
 			log.Println("jwt-error: ", err.Error())
 			sendFailedResponse(c, http.StatusInternalServerError, "something went wrong, please try again")
 			return
+		}
+
+		err = con.Redis.Set(c, loginUser.Email, accessToken, 6*time.Hour).Err()
+		if err != nil {
+			log.Println("redis error: ", err.Error())
 		}
 
 		sendSuccessResponse(c, http.StatusOK, gin.H{
