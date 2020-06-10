@@ -88,7 +88,7 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 		}
 
 		accessToken, err := con.Redis.Get(c, email).Result()
-		if err != nil || accessToken != "" {
+		if err != nil && accessToken != "" {
 			sendSuccessResponse(c, http.StatusOK, gin.H{
 				"access_token": accessToken,
 			})
@@ -110,8 +110,6 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 
 		claims := jwt.MapClaims{
 			"authorized": true,
-			"username":   loginUser.Username,
-			"email":      loginUser.Email,
 			"id":         loginUser.ID,
 			"expired":    time.Now().Add(6 * time.Hour).Unix(),
 		}

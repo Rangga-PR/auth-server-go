@@ -53,6 +53,5 @@ func Routes(r *gin.Engine) {
 		userV1.POST("/new", userController.RegisterHandler())
 		userV1.POST("/auth", userController.LoginHandler())
 		// userV1.GET("refresh",)
-		// userV1.GET("/:username",)
 	}
 }
