@@ -22,6 +22,12 @@ type Controller struct {
 	Redis      *redis.Client
 }
 
+//Claims : custom claims
+type Claims struct {
+	ID string `json:"id"`
+	jwt.StandardClaims
+}
+
 func sendFailedResponse(c *gin.Context, statusCode int, msg string) {
 	c.JSON(statusCode, gin.H{
 		"success": 0,
@@ -108,10 +114,11 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 			return
 		}
 
-		claims := jwt.MapClaims{
-			"authorized": true,
-			"id":         loginUser.ID,
-			"expired":    time.Now().Add(6 * time.Hour).Unix(),
+		claims := &Claims{
+			ID: loginUser.ID.String(),
+			StandardClaims: jwt.StandardClaims{
+				ExpiresAt: time.Now().Add(6 * time.Hour).Unix(),
+			},
 		}
 
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
