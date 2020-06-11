@@ -51,7 +51,7 @@ func Routes(r *gin.Engine) {
 	userV1 := r.Group("api/v1/user")
 	{
 		userV1.POST("/new", userController.RegisterHandler())
-		userV1.POST("/auth", userController.LoginHandler())
-		// userV1.GET("refresh",)
+		userV1.GET("/auth", userController.LoginHandler())
+		userV1.PATCH("refresh", userController.RefreshHandler())
 	}
 }

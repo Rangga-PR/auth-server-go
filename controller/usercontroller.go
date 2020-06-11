@@ -24,7 +24,8 @@ type Controller struct {
 
 //Claims : custom claims
 type Claims struct {
-	ID string `json:"id"`
+	ID    primitive.ObjectID `json:"id"`
+	Email string             `json:"email"`
 	jwt.StandardClaims
 }
 
@@ -41,6 +42,8 @@ func sendSuccessResponse(c *gin.Context, statusCode int, data gin.H) {
 		"result":  data,
 	})
 }
+
+var secretKey = []byte(os.Getenv("SECRET_KEY"))
 
 //RegisterHandler : handle user registeration logic
 func (con *Controller) RegisterHandler() gin.HandlerFunc {
@@ -115,14 +118,15 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 		}
 
 		claims := &Claims{
-			ID: loginUser.ID.String(),
+			ID:    loginUser.ID,
+			Email: loginUser.Email,
 			StandardClaims: jwt.StandardClaims{
 				ExpiresAt: time.Now().Add(6 * time.Hour).Unix(),
 			},
 		}
 
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		accessToken, err = token.SignedString([]byte(os.Getenv("SECRET_KEY")))
+		accessToken, err = token.SignedString(secretKey)
 		if err != nil {
 			log.Println("jwt-error: ", err.Error())
 			sendFailedResponse(c, http.StatusInternalServerError, "something went wrong, please try again")
@@ -136,6 +140,51 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 
 		sendSuccessResponse(c, http.StatusOK, gin.H{
 			"access_token": accessToken,
+		})
+	}
+}
+
+//RefreshHandler : handle user token refresh logic
+func (con *Controller) RefreshHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tokenString := c.Query("access_token")
+		if tokenString == "" {
+			sendFailedResponse(c, http.StatusBadRequest, "no access token provided")
+			return
+		}
+
+		claims := &Claims{}
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+			return secretKey, nil
+		})
+
+		if err != nil {
+			log.Println(err.Error())
+			sendFailedResponse(c, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+
+		if !token.Valid {
+			sendFailedResponse(c, http.StatusBadRequest, "invalid token")
+			return
+		}
+
+		claims.ExpiresAt = time.Now().Add(6 * time.Hour).Unix()
+		newToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(secretKey)
+
+		if err != nil {
+			log.Println(err.Error())
+			sendFailedResponse(c, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+
+		err = con.Redis.Set(c, claims.Email, newToken, 6*time.Hour).Err()
+		if err != nil {
+			log.Println("redis error: ", err.Error())
+		}
+
+		sendSuccessResponse(c, http.StatusOK, gin.H{
+			"access_token": newToken,
 		})
 	}
 }
