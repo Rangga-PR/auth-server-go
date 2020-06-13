@@ -15,11 +15,12 @@ import (
 )
 
 var (
-	ctx            context.Context
-	cancel         context.CancelFunc
-	db             *mongo.Database
-	userController controller.Controller
-	redisClient    *redis.Client
+	ctx             context.Context
+	cancel          context.CancelFunc
+	db              *mongo.Database
+	userController  controller.Controller
+	redisClient     *redis.Client
+	tokenCollection *mongo.Collection
 )
 
 func init() {
@@ -44,6 +45,8 @@ func init() {
 		Collection: db.Collection("user"),
 		Redis:      redisClient,
 	}
+
+	tokenCollection = db.Collection("access_token")
 }
 
 // Routes : define server available routes
@@ -51,7 +54,7 @@ func Routes(r *gin.Engine) {
 	userV1 := r.Group("api/v1/user")
 	{
 		userV1.POST("/new", userController.RegisterHandler())
-		userV1.GET("/auth", userController.LoginHandler())
-		userV1.PATCH("refresh", userController.RefreshHandler(db.Collection("access_token")))
+		userV1.GET("/auth", userController.LoginHandler(tokenCollection))
+		userV1.PATCH("refresh", userController.RefreshHandler(tokenCollection))
 	}
 }

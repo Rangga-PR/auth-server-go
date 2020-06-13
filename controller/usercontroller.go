@@ -85,7 +85,7 @@ func (con *Controller) RegisterHandler() gin.HandlerFunc {
 }
 
 //LoginHandler : handle user login logic
-func (con *Controller) LoginHandler() gin.HandlerFunc {
+func (con *Controller) LoginHandler(tokenCollection *mongo.Collection) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		email := c.Query("email")
@@ -130,6 +130,22 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 		if err != nil {
 			log.Println("jwt-error: ", err.Error())
 			sendFailedResponse(c, http.StatusInternalServerError, "something went wrong, please try again")
+			return
+		}
+
+		newToken := model.AccessToken{
+			UserID:      loginUser.ID,
+			AccessToken: accessToken,
+			LoggedOut:   false,
+			Revoked:     false,
+			CreatedAt:   primitive.NewDateTimeFromTime(time.Now().UTC()),
+			UpdatedAt:   primitive.NewDateTimeFromTime(time.Now().UTC()),
+		}
+
+		_, err = tokenCollection.InsertOne(c, newToken)
+		if err != nil {
+			sendFailedResponse(c, http.StatusInternalServerError, "something went wrong")
+			log.Println(err.Error())
 			return
 		}
 
