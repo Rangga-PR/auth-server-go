@@ -145,11 +145,27 @@ func (con *Controller) LoginHandler() gin.HandlerFunc {
 }
 
 //RefreshHandler : handle user token refresh logic
-func (con *Controller) RefreshHandler() gin.HandlerFunc {
+func (con *Controller) RefreshHandler(tokenCollection *mongo.Collection) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := c.Query("access_token")
 		if tokenString == "" {
 			sendFailedResponse(c, http.StatusBadRequest, "no access token provided")
+			return
+		}
+
+		objectID, err := primitive.ObjectIDFromHex(c.Query("user"))
+		if err != nil {
+			log.Println(err.Error())
+			sendFailedResponse(c, http.StatusUnprocessableEntity, "invalid user id")
+			return
+		}
+
+		existingToken := tokenCollection.FindOne(c, bson.M{
+			"access_token": tokenString,
+			"logged_out":   false,
+		})
+		if existingToken.Err() != mongo.ErrNoDocuments {
+			sendFailedResponse(c, http.StatusUnprocessableEntity, "access token rejected")
 			return
 		}
 
@@ -175,6 +191,21 @@ func (con *Controller) RefreshHandler() gin.HandlerFunc {
 		if err != nil {
 			log.Println(err.Error())
 			sendFailedResponse(c, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+
+		accessToken := model.AccessToken{
+			UserID:      objectID,
+			AccessToken: newToken,
+			LoggedOut:   false,
+			Revoked:     false,
+			CreatedAt:   primitive.NewDateTimeFromTime(time.Now().UTC()),
+			UpdatedAt:   primitive.NewDateTimeFromTime(time.Now().UTC()),
+		}
+		_, err = tokenCollection.InsertOne(c, accessToken)
+		if err != nil {
+			sendFailedResponse(c, http.StatusInternalServerError, "something went wrong")
+			log.Println(err.Error())
 			return
 		}
 
