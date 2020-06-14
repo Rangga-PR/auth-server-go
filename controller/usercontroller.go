@@ -138,6 +138,7 @@ func (con *Controller) LoginHandler(tokenCollection *mongo.Collection) gin.Handl
 			AccessToken: accessToken,
 			LoggedOut:   false,
 			Revoked:     false,
+			ExpiresAt:   primitive.NewDateTimeFromTime(time.Now().Add(6 * time.Hour).UTC()),
 			CreatedAt:   primitive.NewDateTimeFromTime(time.Now().UTC()),
 			UpdatedAt:   primitive.NewDateTimeFromTime(time.Now().UTC()),
 		}
@@ -176,9 +177,13 @@ func (con *Controller) RefreshHandler(tokenCollection *mongo.Collection) gin.Han
 			return
 		}
 
+		currentDate := primitive.NewDateTimeFromTime(time.Now().UTC())
 		existingToken := tokenCollection.FindOne(c, bson.M{
 			"access_token": tokenString,
 			"logged_out":   false,
+			"expires_at": bson.M{
+				"$lte": currentDate,
+			},
 		})
 		if existingToken.Err() != mongo.ErrNoDocuments {
 			sendFailedResponse(c, http.StatusUnprocessableEntity, "access token rejected")
@@ -215,6 +220,7 @@ func (con *Controller) RefreshHandler(tokenCollection *mongo.Collection) gin.Han
 			AccessToken: newToken,
 			LoggedOut:   false,
 			Revoked:     false,
+			ExpiresAt:   primitive.NewDateTimeFromTime(time.Now().Add(6 * time.Hour).UTC()),
 			CreatedAt:   primitive.NewDateTimeFromTime(time.Now().UTC()),
 			UpdatedAt:   primitive.NewDateTimeFromTime(time.Now().UTC()),
 		}
@@ -232,6 +238,43 @@ func (con *Controller) RefreshHandler(tokenCollection *mongo.Collection) gin.Han
 
 		sendSuccessResponse(c, http.StatusOK, gin.H{
 			"access_token": newToken,
+		})
+	}
+}
+
+//LogoutHandler : handle user logout logic
+func (con *Controller) LogoutHandler(tokenCollection *mongo.Collection) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tokenString := c.Query("access_token")
+		email := c.Query("email")
+		if tokenString == "" || email == "" {
+			sendFailedResponse(c, http.StatusBadRequest, "please provides token and email")
+			return
+		}
+
+		filter := bson.M{"access_token": tokenString}
+		update := bson.D{
+			primitive.E{
+				Key: "set",
+				Value: bson.D{
+					primitive.E{Key: "logged_out", Value: true},
+				},
+			},
+		}
+
+		existingToken := tokenCollection.FindOneAndUpdate(c, filter, update)
+		if existingToken.Err() != mongo.ErrNoDocuments {
+			sendFailedResponse(c, http.StatusUnprocessableEntity, "access token rejected")
+			return
+		}
+
+		err := con.Redis.Del(c, email).Err()
+		if err != nil {
+			log.Println("redis error: ", err.Error())
+		}
+
+		sendSuccessResponse(c, http.StatusOK, gin.H{
+			"message": "user is logged out",
 		})
 	}
 }

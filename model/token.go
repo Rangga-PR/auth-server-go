@@ -9,6 +9,7 @@ type AccessToken struct {
 	AccessToken string             `json:"access_token" bson:"access_token"`
 	LoggedOut   bool               `json:"logged_out" bson:"logged_out"`
 	Revoked     bool               `json:"revoked" bson:"revoked"`
+	ExpiresAt   primitive.DateTime `json:"expires_at" bson:"expires_at,omitempty"`
 	UpdatedAt   primitive.DateTime `json:"updated_at" bson:"updated_at,omitempty"`
 	CreatedAt   primitive.DateTime `json:"created_at" bson:"created_at,omitempty"`
 	DeletedAt   primitive.DateTime `json:"deleted_at" bson:"deleted_at,omitempty"`

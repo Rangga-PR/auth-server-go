@@ -55,6 +55,7 @@ func Routes(r *gin.Engine) {
 	{
 		userV1.POST("/new", userController.RegisterHandler())
 		userV1.GET("/auth", userController.LoginHandler(tokenCollection))
-		userV1.PATCH("refresh", userController.RefreshHandler(tokenCollection))
+		userV1.PATCH("/refresh", userController.RefreshHandler(tokenCollection))
+		userV1.PATCH("/logout", userController.LogoutHandler(tokenCollection))
 	}
 }
