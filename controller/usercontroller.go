@@ -274,7 +274,7 @@ func (con *Controller) LogoutHandler(tokenCollection *mongo.Collection) gin.Hand
 		}
 
 		sendSuccessResponse(c, http.StatusOK, gin.H{
-			"message": "user is logged out",
+			"message": "User has logged out",
 		})
 	}
 }
