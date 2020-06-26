@@ -129,7 +129,7 @@ func (con *Controller) LoginHandler(tokenCollection *mongo.Collection) gin.Handl
 		accessToken, err = token.SignedString(secretKey)
 		if err != nil {
 			log.Println("jwt-error: ", err.Error())
-			sendFailedResponse(c, http.StatusInternalServerError, "something went wrong, please try again")
+			sendFailedResponse(c, http.StatusInternalServerError, "something went wrong")
 			return
 		}
 
@@ -166,7 +166,7 @@ func (con *Controller) RefreshHandler(tokenCollection *mongo.Collection) gin.Han
 	return func(c *gin.Context) {
 		tokenString := c.Query("access_token")
 		if tokenString == "" {
-			sendFailedResponse(c, http.StatusBadRequest, "no access token provided")
+			sendFailedResponse(c, http.StatusBadRequest, "Access token is required")
 			return
 		}
 
