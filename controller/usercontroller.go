@@ -248,7 +248,7 @@ func (con *Controller) LogoutHandler(tokenCollection *mongo.Collection) gin.Hand
 		tokenString := c.Query("access_token")
 		email := c.Query("email")
 		if tokenString == "" || email == "" {
-			sendFailedResponse(c, http.StatusBadRequest, "please provides token and email")
+			sendFailedResponse(c, http.StatusBadRequest, "token and email cannot be empty")
 			return
 		}
 
